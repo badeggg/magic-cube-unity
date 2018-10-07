@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class Box : MonoBehaviour {
-
-	// Use this for initialization
-	void Start () {
+    public Vector3Int cubeCoord;
+    // Use this for initialization
+    void Start () {
 		
 	}
 	
