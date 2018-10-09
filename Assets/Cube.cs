@@ -93,7 +93,7 @@ struct CubeTiersRotateRoutine
         this.gearRatio = gearRatio;
         this._phase = CubeTiersRotateRoutinePhase.sleeping;
         this.tier = null;
-        this.startDetectThreshold = 5;
+        this.startDetectThreshold = 2.5F;
         this.hit = new RaycastHit();
         this.controlDirection = Direction.empty;
         this.accumulateDeltaPosition = Vector2.zero;
@@ -170,7 +170,7 @@ struct CubeTiersRotateRoutine
         public CubicBezierCurve bezier = new CubicBezierCurve();
         public float duration = 1;
         public float accumulateTime = 0;
-        public float speedThreshold = 10;
+        public float speedThreshold = 200;
         public float initAngle = 0;
         public float currentAngle = 0;
         public float targetAngle = 0;
@@ -186,7 +186,7 @@ struct CubeTiersRotateRoutine
         autoRotateProperty.accumulateTime = 0;
         if(isFollowControlRotate){
             Vector3 deltaInCube = transform.InverseTransformPoint(new Vector3(firstFinger.deltaPosition.x, firstFinger.deltaPosition.y, 0));
-            Vector3 speedInCube = deltaInCube / Time.deltaTime;
+            Vector3 speedInCube = deltaInCube / firstFinger.deltaTime;
             if(this.controlDirection == Direction.positiveX){
                 autoRotateProperty.initAngle = accumulateDeltaInCube.x / gearRatio;
                 if (Math.Abs(speedInCube.x) > autoRotateProperty.speedThreshold){
@@ -603,8 +603,9 @@ struct CubeTiersRotateRoutine
     private Boolean StartDetect(){
         if ( Math.Abs(this.accumulateDeltaPosition.x) > this.startDetectThreshold || Math.Abs(this.accumulateDeltaPosition.y) > this.startDetectThreshold){
             return true;
+        } else{
+            return false;
         }
-        return false;
     }
     private Boolean DetermineTierAndControlDirection(Touch firstFinger, Transform transform){
         TierId id = new TierId();
@@ -685,9 +686,6 @@ struct CubeTiersRotateRoutine
                 success = false;
                 break;
         }
-        Console.WriteLine("this.tier.id.face: " + this.tier.id.face);
-        Console.WriteLine("this.controlDirection: " + this.controlDirection);
-        Console.WriteLine();
         return success;
     }
     private void Rotate(Transform transform, float deltaAngle){
@@ -879,7 +877,7 @@ public class Cube : MonoBehaviour {
     void Start () {
         InitProperty();
         ConstructCube();
-        //InitView();
+        InitView();
 	}
 	
 	// Update is called once per frame
