@@ -204,7 +204,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 5
-  cubeCoord: {x: 0, y: 0, z: 0}
 --- !u!1 &170076733
 GameObject:
   m_ObjectHideFlags: 0
@@ -293,14 +292,14 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 328456498}
-  m_LocalRotation: {x: -0.13451286, y: -0, z: -0, w: 0.99091184}
-  m_LocalPosition: {x: 0, y: -0.000000049557997, z: -0.00000006716742}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 1137683701}
   m_Father: {fileID: 0}
   m_RootOrder: 4
-  m_LocalEulerAnglesHint: {x: -15.461, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &328456500
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,6 +311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 656054a6e750a42d085d19ea1921c8d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rank: 3
 --- !u!1001 &478744971
 Prefab:
   m_ObjectHideFlags: 0
@@ -407,7 +407,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 3
-  cubeCoord: {x: 0, y: 0, z: 0}
 --- !u!1 &534669902
 GameObject:
   m_ObjectHideFlags: 0
@@ -580,7 +579,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 2
-  cubeCoord: {x: 0, y: 0, z: 0}
 --- !u!1001 &1137683700
 Prefab:
   m_ObjectHideFlags: 0
@@ -760,7 +758,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 1
-  cubeCoord: {x: 0, y: 0, z: 0}
 --- !u!1 &1246426172
 GameObject:
   m_ObjectHideFlags: 0
@@ -914,7 +911,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 4
-  cubeCoord: {x: 0, y: 0, z: 0}
 --- !u!1 &2097565823
 GameObject:
   m_ObjectHideFlags: 0
@@ -1072,4 +1068,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   direction: 0
-  cubeCoord: {x: 0, y: 0, z: 0}

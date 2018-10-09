@@ -22,7 +22,7 @@ class CubicBezierCurve{
         return DeriveYFromX(tTarget);
     }
     public float DeriveYFromX(float xTarget){
-        float tolerance = 0.0001F;
+        float tolerance = 0.000001F;
         float t0 = 0.6F;
         float x = 3 * (1 - t0) * (1 - t0) * t0 * controlPoint1.x + 3 * (1 - t0) * t0 * t0 * controlPoint2.x + t0 * t0 * t0;
         float t = -1.0F;
@@ -106,7 +106,6 @@ struct CubeTiersRotateRoutine
         this.HandleTouch(touches, transform);
     }
     public void HandleTouch(Touch[] touches, Transform transform){
-        Console.WriteLine("phase " + _phase);
         Touch firstFinger = touches[0];
         this.accumulateDeltaPosition += firstFinger.deltaPosition;
         this.accumulateDeltaInCube += transform.InverseTransformPoint(new Vector3(firstFinger.deltaPosition.x, firstFinger.deltaPosition.y, 0));
@@ -131,7 +130,6 @@ struct CubeTiersRotateRoutine
                     this._phase = CubeTiersRotateRoutinePhase.controlRotating;
                     DetermineTierAndControlDirection(firstFinger, transform);
                     TestAccumulateEnoughResult result = TestAccumulateEnough(firstFinger, transform);
-                    Console.WriteLine("result.enough " + result.enough);
                     if (!result.enough){
                         this.Rotate(firstFinger, transform);
                     } else{
@@ -143,7 +141,6 @@ struct CubeTiersRotateRoutine
                 }
             } else if(this.phase == CubeTiersRotateRoutinePhase.controlRotating){
                 TestAccumulateEnoughResult result = TestAccumulateEnough(firstFinger, transform);
-                Console.WriteLine("result.enough " + result.enough);
                 if (!result.enough){
                     this.Rotate(firstFinger, transform);
                 } else{
@@ -173,7 +170,7 @@ struct CubeTiersRotateRoutine
         public CubicBezierCurve bezier = new CubicBezierCurve();
         public float duration = 1;
         public float accumulateTime = 0;
-        public float speedThreshold = 30;
+        public float speedThreshold = 10;
         public float initAngle = 0;
         public float currentAngle = 0;
         public float targetAngle = 0;
@@ -218,7 +215,7 @@ struct CubeTiersRotateRoutine
                     autoRotateProperty.bezier = new CubicBezierCurve(0.4F, 0, 0.6F, 1);
                 }
             } else if(this.controlDirection == Direction.negativeX){
-                autoRotateProperty.initAngle = accumulateDeltaInCube.x / gearRatio;
+                autoRotateProperty.initAngle = -accumulateDeltaInCube.x / gearRatio;
                 if (Math.Abs(speedInCube.x) > autoRotateProperty.speedThreshold){
                     if (speedInCube.x > 0){
                         if(autoRotateProperty.initAngle < 0){
@@ -272,7 +269,7 @@ struct CubeTiersRotateRoutine
                     autoRotateProperty.bezier = new CubicBezierCurve(0.4F, 0, 0.6F, 1);
                 }
             } else if(this.controlDirection == Direction.negativeY){
-                autoRotateProperty.initAngle = accumulateDeltaInCube.y / gearRatio;
+                autoRotateProperty.initAngle = -accumulateDeltaInCube.y / gearRatio;
                 if (Math.Abs(speedInCube.y) > autoRotateProperty.speedThreshold){
                     if (speedInCube.y > 0){
                         if(autoRotateProperty.initAngle < 0){
@@ -326,7 +323,7 @@ struct CubeTiersRotateRoutine
                     autoRotateProperty.bezier = new CubicBezierCurve(0.4F, 0, 0.6F, 1);
                 }
             } else if(this.controlDirection == Direction.negativeZ){
-                autoRotateProperty.initAngle = accumulateDeltaInCube.z / gearRatio;
+                autoRotateProperty.initAngle = -accumulateDeltaInCube.z / gearRatio;
                 if (Math.Abs(speedInCube.z) > autoRotateProperty.speedThreshold){
                     if (speedInCube.z > 0){
                         if(autoRotateProperty.initAngle < 0){
@@ -362,16 +359,19 @@ struct CubeTiersRotateRoutine
         float nextAngle = 0;
         float frameDeltaAngle = 0;
         autoRotateProperty.accumulateTime += Time.deltaTime;
-        if(autoRotateProperty.accumulateTime >= autoRotateProperty.duration){
+        if(autoRotateProperty.accumulateTime >= autoRotateProperty.duration){ //end
             nextAngle = autoRotateProperty.targetAngle;
             frameDeltaAngle = nextAngle - autoRotateProperty.currentAngle;
             Rotate(transform, frameDeltaAngle);
+            this.reviseCubeCoordOfBoxAndSquare(transform);
+            clearAccumulateDelta();
             _phase = CubeTiersRotateRoutinePhase.sleeping;
+        } else{ //rotating
+            nextAngle = autoRotateProperty.initAngle + autoRotateProperty.bezier.DeriveYFromT(autoRotateProperty.accumulateTime / autoRotateProperty.duration) * autoRotateProperty.deltaAngle;
+            frameDeltaAngle = nextAngle - autoRotateProperty.currentAngle;
+            autoRotateProperty.currentAngle = nextAngle;
+            Rotate(transform, frameDeltaAngle);
         }
-        nextAngle = autoRotateProperty.initAngle + autoRotateProperty.bezier.DeriveYFromT(autoRotateProperty.accumulateTime / autoRotateProperty.duration) * autoRotateProperty.deltaAngle;
-        frameDeltaAngle = nextAngle - autoRotateProperty.currentAngle;
-        autoRotateProperty.currentAngle = nextAngle;
-        Rotate(transform, frameDeltaAngle);
     }
     private void reviseCubeCoordOfBoxAndSquare(Transform transform){
         this.reviseCubeCoordOfBoxAndSquare(transform, Quaternion.identity);
@@ -379,42 +379,71 @@ struct CubeTiersRotateRoutine
     private void reviseCubeCoordOfBoxAndSquare(Transform transform, Quaternion rotation){
         //Another way to handle maintaining is using Matrix4x4 api. I am not that familiar with matrix so I can't master Matrix4x4 api now. Maybe I will refactor this method when I do.
         if( rotation == Quaternion.identity ){
-            if (this.phase == CubeTiersRotateRoutinePhase.controlRotating || this.phase == CubeTiersRotateRoutinePhase.startDetecting){
+            if (
+                   this.phase == CubeTiersRotateRoutinePhase.controlRotating 
+                || this.phase == CubeTiersRotateRoutinePhase.startDetecting 
+                || this.phase == CubeTiersRotateRoutinePhase.autoRotating
+               )
+            {
                 if(   (this.controlDirection == Direction.positiveX && this.accumulateDeltaInCube.x > 0)
-                || (this.controlDirection == Direction.negativeX && this.accumulateDeltaInCube.x < 0)
-                )
+                   || (this.controlDirection == Direction.negativeX && this.accumulateDeltaInCube.x < 0)
+                  )
                 {
-                    rotation = Quaternion.Euler(90, 0, 0);
+                    if(tier.id.face == Face.xy){
+                        rotation = Quaternion.Euler(0, 0, 90);
+                    } else if(tier.id.face == Face.xz){
+                        rotation = Quaternion.Euler(0, 90, 0);
+                    }
                 } 
                 else if(   (this.controlDirection == Direction.positiveX && this.accumulateDeltaInCube.x < 0)
                         || (this.controlDirection == Direction.negativeX && this.accumulateDeltaInCube.x > 0)
-                    )
+                       )
                 {
-                    rotation = Quaternion.Euler(-90, 0, 0);
+                    if(tier.id.face == Face.xy){
+                        rotation = Quaternion.Euler(0, 0, -90);
+                    } else if(tier.id.face == Face.xz){
+                        rotation = Quaternion.Euler(0, -90, 0);
+                    }
                 }
                 else if(   (this.controlDirection == Direction.positiveY && this.accumulateDeltaInCube.y > 0)
                         || (this.controlDirection == Direction.negativeY && this.accumulateDeltaInCube.y < 0)
-                    )
+                       )
                 {
-                    rotation = Quaternion.Euler(0, 90, 0);
+                    if(tier.id.face == Face.xy){
+                        rotation = Quaternion.Euler(0, 0, 90);
+                    } else if(tier.id.face == Face.yz){
+                        rotation = Quaternion.Euler(90, 0, 0);
+                    }
                 }
                 else if(   (this.controlDirection == Direction.positiveY && this.accumulateDeltaInCube.y < 0)
                         || (this.controlDirection == Direction.negativeY && this.accumulateDeltaInCube.y > 0)
-                    )
+                       )
                 {
-                    rotation = Quaternion.Euler(0, -90, 0);
+                    if(tier.id.face == Face.xy){
+                        rotation = Quaternion.Euler(0, 0, -90);
+                    } else if(tier.id.face == Face.yz){
+                        rotation = Quaternion.Euler(-90, 0, 0);
+                    }
                 }
                 else if(   (this.controlDirection == Direction.positiveZ && this.accumulateDeltaInCube.z > 0)
                         || (this.controlDirection == Direction.negativeZ && this.accumulateDeltaInCube.z < 0)
-                    )
+                       )
                 {
-                    rotation = Quaternion.Euler(0, 0, 90);
+                    if(tier.id.face == Face.xz){
+                        rotation = Quaternion.Euler(0, 90, 0);
+                    } else if(tier.id.face == Face.yz){
+                        rotation = Quaternion.Euler(90, 0, 0);
+                    }
                 }
                 else if(   (this.controlDirection == Direction.positiveZ && this.accumulateDeltaInCube.z < 0)
                         || (this.controlDirection == Direction.negativeZ && this.accumulateDeltaInCube.z > 0)
-                    )
+                       )
                 {
-                    rotation = Quaternion.Euler(0, 0, -90);
+                    if(tier.id.face == Face.xz){
+                        rotation = Quaternion.Euler(0, -90, 0);
+                    } else if(tier.id.face == Face.yz){
+                        rotation = Quaternion.Euler(-90, 0, 0);
+                    }
                 }
             }
         }
@@ -501,32 +530,36 @@ struct CubeTiersRotateRoutine
         TestAccumulateEnoughResult result = new TestAccumulateEnoughResult();
         switch (controlDirection){
             case Direction.positiveX:
-                Console.WriteLine("accumulateDeltaInCube.x  " + accumulateDeltaInCube.x );
-                Console.WriteLine("accumulateDeltaInCube.x/gearRatio  " + accumulateDeltaInCube.x/ gearRatio);
                 if ( accumulateDeltaInCube.x / gearRatio >= 90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( accumulateDeltaInCube.x / gearRatio <= -90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
                 }
                 break;
             case Direction.negativeX:
-                if( accumulateDeltaInCube.x / gearRatio <= -90 ){
+                if ( -accumulateDeltaInCube.x / gearRatio >= 90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( -accumulateDeltaInCube.x / gearRatio <= -90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
                 }
                 break;
             case Direction.positiveY:
-                Console.WriteLine("accumulateDeltaInCube.y  " + accumulateDeltaInCube.y);
-                Console.WriteLine("accumulateDeltaInCube.y/gearRatio  " + accumulateDeltaInCube.y / gearRatio);
                 if ( accumulateDeltaInCube.y / gearRatio >= 90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( accumulateDeltaInCube.y / gearRatio <= -90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
                 }
                 break;
             case Direction.negativeY:
-                if( accumulateDeltaInCube.y / gearRatio <= -90 ){
+                if ( -accumulateDeltaInCube.y / gearRatio >= 90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( -accumulateDeltaInCube.y / gearRatio <= -90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
@@ -535,12 +568,16 @@ struct CubeTiersRotateRoutine
             case Direction.positiveZ:
                 if( accumulateDeltaInCube.z / gearRatio >= 90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( accumulateDeltaInCube.z / gearRatio <= -90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
                 }
                 break;
             case Direction.negativeZ:
-                if( accumulateDeltaInCube.z / gearRatio <= -90 ){
+                if( -accumulateDeltaInCube.z / gearRatio >= 90 ){
+                    result = new TestAccumulateEnoughResult(true, lastDeficientInPositiveAxes);
+                } else if( -accumulateDeltaInCube.z / gearRatio <= -90 ){
                     result = new TestAccumulateEnoughResult(true, lastDeficientInNegativeAxes);
                 } else{
                     result = new TestAccumulateEnoughResult(false, Vector3.zero);
@@ -562,6 +599,7 @@ struct CubeTiersRotateRoutine
         TierId id = new TierId();
         Cube cubeComponent = transform.gameObject.GetComponent<Cube>();
         Square square = this.hit.collider.GetComponent<Square>();
+        Boolean success = true;
         switch(square.direction){
             case Direction.positiveX:
                 if(Math.Abs(accumulateDeltaInCube.y) > Math.Abs(accumulateDeltaInCube.z)){
@@ -573,7 +611,7 @@ struct CubeTiersRotateRoutine
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.negativeZ;
                 }
-                return true;
+                break;
             case Direction.negativeX:
                 if (Math.Abs(accumulateDeltaInCube.y) > Math.Abs(accumulateDeltaInCube.z)){
                     id = new TierId(Face.xy, square.transform.parent.GetComponent<Box>().cubeCoord.z);
@@ -584,7 +622,7 @@ struct CubeTiersRotateRoutine
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.positiveZ;
                 }
-                return true;
+                break;
             case Direction.positiveY:
                 if (Math.Abs(accumulateDeltaInCube.x) > Math.Abs(accumulateDeltaInCube.z)){
                     id = new TierId(Face.xy, square.transform.parent.GetComponent<Box>().cubeCoord.z);
@@ -595,7 +633,7 @@ struct CubeTiersRotateRoutine
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.positiveZ;
                 }
-                return true;
+                break;
             case Direction.negativeY:
                 if (Math.Abs(accumulateDeltaInCube.x) > Math.Abs(accumulateDeltaInCube.z)){
                     id = new TierId(Face.xy, square.transform.parent.GetComponent<Box>().cubeCoord.z);
@@ -606,7 +644,7 @@ struct CubeTiersRotateRoutine
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.negativeZ;
                 }
-                return true;
+                break;
             case Direction.positiveZ:
                 if (Math.Abs(accumulateDeltaInCube.x) > Math.Abs(accumulateDeltaInCube.y)){
                     id = new TierId(Face.xz, square.transform.parent.GetComponent<Box>().cubeCoord.y);
@@ -617,26 +655,26 @@ struct CubeTiersRotateRoutine
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.negativeY;
                 }
-                return true;
+                break;
             case Direction.negativeZ:
-                if (Math.Abs(accumulateDeltaInCube.x) > Math.Abs(accumulateDeltaInCube.y))
-                {
+                if (Math.Abs(accumulateDeltaInCube.x) > Math.Abs(accumulateDeltaInCube.y)){
                     id = new TierId(Face.xz, square.transform.parent.GetComponent<Box>().cubeCoord.y);
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.negativeX;
                 }
-                else
-                {
+                else{
                     id = new TierId(Face.yz, square.transform.parent.GetComponent<Box>().cubeCoord.x);
                     this.tier = cubeComponent.tiers[id];
                     this.controlDirection = Direction.positiveY;
                 }
-                return true;
+                break;
             default:
                 this.tier = null;
                 this.controlDirection = Direction.empty;
-                return false;
+                success = false;
+                break;
         }
+        return success;
     }
     private void Rotate(Transform transform, float deltaAngle){
         Rotate(placeholderTouch, transform, Vector3.zero, deltaAngle);
@@ -757,7 +795,7 @@ struct CubeRotateRoutine{
             this.Rotate(firstFinger, transform);
         } else if (firstFinger.phase == TouchPhase.Moved){
             this.Rotate(firstFinger, transform);
-        } else if(firstFinger.phase == TouchPhase.Ended){
+        } else if(firstFinger.phase == TouchPhase.Ended || firstFinger.phase == TouchPhase.Canceled){
             if(this.phase == CubeRotateRoutinePhase.active){
                 this._phase = CubeRotateRoutinePhase.sleeping;
             }
@@ -805,7 +843,7 @@ public class Cube : MonoBehaviour {
                         {
 
                         } else{
-                            Destroy(square);
+                            Destroy(square.gameObject);
                         }
                     }
                     TierId idz = new TierId(Face.xy, z);
@@ -827,7 +865,7 @@ public class Cube : MonoBehaviour {
     void Start () {
         InitProperty();
         ConstructCube();
-        InitView();
+        //InitView();
 	}
 	
 	// Update is called once per frame
@@ -839,7 +877,7 @@ public class Cube : MonoBehaviour {
                 this.cubeRR.HandleTouch(Input.touches, transform);
             } else if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.startDetecting || this.tiersRR.phase == CubeTiersRotateRoutinePhase.controlRotating){
                 this.tiersRR.HandleTouch(Input.touches, transform);
-            } else if(this.cubeRR.phase == CubeRotateRoutinePhase.sleeping && this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
+            } else if(this.cubeRR.phase == CubeRotateRoutinePhase.sleeping && this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping && Input.touches[0].phase == TouchPhase.Began){
                 Ray raycast = Camera.main.ScreenPointToRay(Input.GetTouch(0).position);
                 RaycastHit hit;
                 if (Physics.Raycast(raycast, out hit) && hit.collider.tag == "square"){
@@ -849,21 +887,5 @@ public class Cube : MonoBehaviour {
                 }
             }
         }
-
-        /////debug start
-        //if(Input.touchCount > 0){
-        //    Console.WriteLine("screen wh: " + Screen.width + " " + Screen.height);
-        //    Console.Write("=== frame touch count: " + Input.touchCount);
-        //    foreach (Touch touch in Input.touches)
-        //    {
-        //        Console.Write(" phase " + touch.phase);
-        //        Console.Write(" position " + touch.position);
-        //        Console.Write(" deltaPosition " + touch.deltaPosition);
-        //        Console.Write(" deltaTime " + touch.deltaTime);
-        //        Console.Write(" deltaPosition/deltaTime " + touch.deltaPosition / touch.deltaTime);
-        //        Console.WriteLine("");
-        //    }
-        //}
-        /////debug end
 	}
 }
