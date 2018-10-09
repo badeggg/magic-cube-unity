@@ -174,7 +174,7 @@ struct CubeTiersRotateRoutine
         public float initAngle = 0;
         public float currentAngle = 0;
         public float targetAngle = 0;
-        public float anglePerSec = 180F;
+        public float anglePerSec = 360F;
         public float deltaAngle = 0;
     }
     AutoRotateProperty autoRotateProperty;
@@ -382,7 +382,6 @@ struct CubeTiersRotateRoutine
             if (
                    this.phase == CubeTiersRotateRoutinePhase.controlRotating 
                 || this.phase == CubeTiersRotateRoutinePhase.startDetecting 
-                || this.phase == CubeTiersRotateRoutinePhase.autoRotating
                )
             {
                 if(   (this.controlDirection == Direction.positiveX && this.accumulateDeltaInCube.x > 0)
@@ -444,6 +443,18 @@ struct CubeTiersRotateRoutine
                     } else if(tier.id.face == Face.yz){
                         rotation = Quaternion.Euler(-90, 0, 0);
                     }
+                }
+            } else if( this.phase == CubeTiersRotateRoutinePhase.autoRotating ){
+                switch(this.tier.id.face){
+                    case Face.xy:
+                        rotation = Quaternion.Euler(0, 0, this.autoRotateProperty.targetAngle);
+                        break;
+                    case Face.xz:
+                        rotation = Quaternion.Euler(0, this.autoRotateProperty.targetAngle, 0);
+                        break;
+                    case Face.yz:
+                        rotation = Quaternion.Euler(this.autoRotateProperty.targetAngle, 0, 0);
+                        break;
                 }
             }
         }
@@ -674,6 +685,9 @@ struct CubeTiersRotateRoutine
                 success = false;
                 break;
         }
+        Console.WriteLine("this.tier.id.face: " + this.tier.id.face);
+        Console.WriteLine("this.controlDirection: " + this.controlDirection);
+        Console.WriteLine();
         return success;
     }
     private void Rotate(Transform transform, float deltaAngle){
@@ -880,10 +894,11 @@ public class Cube : MonoBehaviour {
             } else if(this.cubeRR.phase == CubeRotateRoutinePhase.sleeping && this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping && Input.touches[0].phase == TouchPhase.Began){
                 Ray raycast = Camera.main.ScreenPointToRay(Input.GetTouch(0).position);
                 RaycastHit hit;
-                if (Physics.Raycast(raycast, out hit) && hit.collider.tag == "square"){
-                    this.tiersRR.HandleTouch(Input.touches, transform, hit);
-                } else{
+                Boolean isHit = Physics.Raycast(raycast, out hit);
+                if(!isHit){
                     this.cubeRR.HandleTouch(Input.touches, transform);
+                } else if(isHit && hit.collider.tag == "square"){
+                    this.tiersRR.HandleTouch(Input.touches, transform, hit);
                 }
             }
         }
