@@ -190,7 +190,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2, y: 2, z: 0}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &107121434
 MonoBehaviour:
@@ -281,7 +281,7 @@ GameObject:
   - component: {fileID: 328456500}
   m_Layer: 0
   m_Name: cube
-  m_TagString: Untagged
+  m_TagString: cube
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -393,7 +393,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2, y: 2.000001, z: 0.00000013411045}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0.00000013411045}
   m_Center: {x: 0.0000000067793735, y: 0.000000045045454, z: 0.00000035762787}
 --- !u!114 &478744974
 MonoBehaviour:
@@ -439,8 +439,8 @@ Camera:
   m_GameObject: {fileID: 534669902}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.6784888, g: 0.745283, b: 0.68429697, a: 0}
   m_projectionMatrixMode: 1
   m_SensorSize: {x: 36, y: 24}
   m_LensShift: {x: 0, y: 0}
@@ -565,7 +565,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2.000001, y: 2, z: 0.00000023841858}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0.00000023841858}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &1111131073
 MonoBehaviour:
@@ -667,6 +667,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cubeCoord: {x: 0, y: 0, z: 0}
+--- !u!65 &1137683707
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1137683702}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Size: {x: 2, y: 2, z: 2}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &1149407710
 Prefab:
   m_ObjectHideFlags: 0
@@ -744,7 +756,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2.0000005, y: 2, z: 0}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &1149407713
 MonoBehaviour:
@@ -897,7 +909,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2.0000007, y: 2, z: 0.000000007450581}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0.000000007450581}
   m_Center: {x: -0.0000000065665517, y: 0, z: 0.00000047683716}
 --- !u!114 &1387515270
 MonoBehaviour:
@@ -1054,7 +1066,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 2.0000005, y: 2, z: 0}
+  m_Size: {x: 2.2222, y: 2.2222, z: 0}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &2132238323
 MonoBehaviour:
