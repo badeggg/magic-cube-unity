@@ -571,7 +571,7 @@ public struct CubeTiersRotateRoutine
 
         this.autoRotateProperty.anglePerSec = 360F;
         this.autoRotateProperty.bezier = new CubicBezierCurve();
-        this.autoRotateProperty.duration = 0.5F;
+        this.autoRotateProperty.duration = 0.4F;
         this.autoRotateProperty.initAngle = 0;
     }
     public void SequenceAutoRotate(Transform transform){
@@ -1117,6 +1117,9 @@ public class Cube : MonoBehaviour {
             this.tiersRR.AutoRotate(transform);
         } else if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sequenceAutoRotating || this.tiersRR.phase == CubeTiersRotateRoutinePhase.sequenceAutoRotateGap){
             this.tiersRR.SequenceAutoRotate(transform);
+            if(Input.touchCount > 0){
+                this.cubeRR.HandleTouch(Input.touches, transform);
+            }
         } else if(Input.touchCount > 0){
             if (this.cubeRR.phase == CubeRotateRoutinePhase.active){
                 this.cubeRR.HandleTouch(Input.touches, transform);
