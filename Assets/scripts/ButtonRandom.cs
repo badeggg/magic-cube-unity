@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class RandomButton : MonoBehaviour {
+public class ButtonRandom : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
@@ -14,7 +14,7 @@ public class RandomButton : MonoBehaviour {
 		
 	}
     public void exec(){
-        CubeTiersRotateRoutine.SequenceAutoRotateItem[] items = new CubeTiersRotateRoutine.SequenceAutoRotateItem[10];
+        CubeTiersRotateRoutine.SequenceAutoRotateItem[] items = new CubeTiersRotateRoutine.SequenceAutoRotateItem[12];
         Cube cube = GameObject.Find("cube").GetComponent<Cube>();
         int cubeRank = cube.GetComponent<Cube>().rank;
         System.Random random = new System.Random();

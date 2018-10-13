@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 class CubicBezierCurve{
     Vector2 controlPoint1;
@@ -22,7 +23,7 @@ class CubicBezierCurve{
         return DeriveYFromX(tTarget);
     }
     public float DeriveYFromX(float xTarget){
-        float tolerance = 0.000001F;
+        float tolerance = 0.00001F;
         float t0 = 0.6F;
         float x = 3 * (1 - t0) * (1 - t0) * t0 * controlPoint1.x + 3 * (1 - t0) * t0 * t0 * controlPoint2.x + t0 * t0 * t0;
         float t = -1.0F;
@@ -1046,14 +1047,38 @@ struct CubeRotateRoutine{
         }
     }
 }
+public struct BoxState{
+    public Vector3Int cubeCoord;
+    public Quaternion localRotation;
+    public Dictionary<String, Direction> squareDirections;
+}
 public class Cube : MonoBehaviour {
     public int rank = 3;
     public Dictionary<TierId, Tier> tiers = new Dictionary<TierId, Tier>();
     public CubeTiersRotateRoutine tiersRR = new CubeTiersRotateRoutine(7);
     CubeRotateRoutine cubeRR = new CubeRotateRoutine(7);
+    public BoxState[] originBoxesState = new BoxState[0];
+    float frontDistance;
 
-    void InitProperty() {
+    void InitProperties() {
         this.name = "cube";
+        this.frontDistance = rank * 2 / 2 - 2 / 2;
+        originBoxesState = new BoxState[rank * rank * rank];
+        for (int x = 0; x < rank; x++){
+            for (int y = 0; y < rank; y++){
+                for (int z = 0; z < rank; z++){
+                    originBoxesState[x * rank * rank + y * rank + z].cubeCoord = new Vector3Int(x, y, z);
+                    originBoxesState[x * rank * rank + y * rank + z].localRotation = Quaternion.identity;
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections = new Dictionary<string, Direction>();
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("blue", Direction.negativeZ);
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("green", Direction.positiveZ);
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("orange", Direction.negativeX);
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("red", Direction.positiveX);
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("white", Direction.negativeY);
+                    originBoxesState[x * rank * rank + y * rank + z].squareDirections.Add("yellow", Direction.positiveY);
+                }
+            }
+        }
         for (int i = 0; i < this.rank; i++){
             TierId idz = new TierId(Face.xy, i);
             TierId idy = new TierId(Face.xz, i);
@@ -1066,7 +1091,6 @@ public class Cube : MonoBehaviour {
 
     void ConstructCube() {
         GameObject protoBox = GameObject.Find("box");
-        float frontDistance = rank * 2 / 2 - 2 / 2;
         for (int x = 0; x < rank; x++)
         {
             for (int y = 0; y < rank; y++)
@@ -1074,8 +1098,11 @@ public class Cube : MonoBehaviour {
                 for (int z = 0; z < rank; z++)
                 {
                     GameObject box = Instantiate(protoBox, new Vector3(x * 2 - frontDistance, y * 2 - frontDistance, z * 2 - frontDistance), Quaternion.identity, gameObject.transform);
-                    box.GetComponent<Box>().cubeCoord = new Vector3Int(x, y, z);
-                    foreach(Square square in box.GetComponentsInChildren<Square>()){
+                    Box boxCompo = box.GetComponent<Box>();
+                    boxCompo.cubeCoord = new Vector3Int(x, y, z);
+                    boxCompo.originCubeCoord = new Vector3Int(x, y, z);
+                    boxCompo.name = "box" + x + y + z;
+                    foreach (Square square in box.GetComponentsInChildren<Square>()){
                         if(   (x == 0 && square.direction == Direction.negativeX)
                            || (x == rank-1 && square.direction == Direction.positiveX)
                            || (y == 0 && square.direction == Direction.negativeY)
@@ -1104,9 +1131,34 @@ public class Cube : MonoBehaviour {
     {
         transform.Rotate(-18, 20, 0, Space.World);
     }
+    void LoadState(BoxState[] boxesState){
+        Box[] boxes = FindObjectsOfType<Box>();
+        boxes = boxes.OrderBy(box => box.name).ToArray();
+        for (int i = 0; i < rank * rank * rank; i++){
+            Box box = boxes[i];
+
+            //remove box gameObject to original tier
+            tiers[new TierId(Face.xy, box.cubeCoord.z)].boxes.Remove(box.gameObject);
+            tiers[new TierId(Face.xz, box.cubeCoord.y)].boxes.Remove(box.gameObject);
+            tiers[new TierId(Face.yz, box.cubeCoord.x)].boxes.Remove(box.gameObject);
+
+            box.cubeCoord = boxesState[i].cubeCoord;
+            box.transform.localPosition = new Vector3(boxesState[i].cubeCoord.x * 2 - frontDistance, boxesState[i].cubeCoord.y * 2 - frontDistance, boxesState[i].cubeCoord.z * 2 - frontDistance);
+            box.transform.localRotation = boxesState[i].localRotation;
+            Square[] squares = FindObjectsOfType<Square>();
+            foreach(Square square in squares){
+                square.direction = boxesState[i].squareDirections[square.name];
+            }
+
+            //add box gameObject to proper tier
+            tiers[new TierId(Face.xy, box.cubeCoord.z)].boxes.Add(box.gameObject);
+            tiers[new TierId(Face.xz, box.cubeCoord.y)].boxes.Add(box.gameObject);
+            tiers[new TierId(Face.yz, box.cubeCoord.x)].boxes.Add(box.gameObject);
+        }
+    }
     // Use this for initialization
     void Start () {
-        InitProperty();
+        InitProperties();
         ConstructCube();
         InitView();
 	}
@@ -1140,6 +1192,14 @@ public class Cube : MonoBehaviour {
     public Boolean SequenceAutoRotateTier(CubeTiersRotateRoutine.SequenceAutoRotateItem[] items){
         if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
             this.tiersRR.InitSequenceAutoRotate(items);
+            return true;
+        } else{
+            return false;
+        }
+    }
+    public Boolean StartOver(){
+        if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
+            this.LoadState(originBoxesState);
             return true;
         } else{
             return false;
