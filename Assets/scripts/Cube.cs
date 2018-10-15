@@ -496,6 +496,9 @@ public struct CubeTiersRotateRoutine
         autoRotateProperty.duration = Math.Abs(autoRotateProperty.targetAngle - autoRotateProperty.initAngle) / autoRotateProperty.anglePerSec;
     }
     public void AutoRotate(Transform transform){
+        AutoRotate(transform, true);
+    }
+    public void AutoRotate(Transform transform, Boolean shouldRecord){
         float nextAngle = 0;
         float frameDeltaAngle = 0;
         autoRotateProperty.accumulateTime += Time.deltaTime;
@@ -538,7 +541,7 @@ public struct CubeTiersRotateRoutine
                         }
                         break;
                 }
-                this.reviseCubeCoordOfBoxAndSquare(transform, rotation);
+                this.reviseCubeCoordOfBoxAndSquare(transform, rotation, shouldRecord);
                 _phase = CubeTiersRotateRoutinePhase.sequenceAutoRotateGap;
             }
         }
@@ -550,25 +553,28 @@ public struct CubeTiersRotateRoutine
             Rotate(transform, frameDeltaAngle);
         }
     }
-    public class SequenceAutoRotateItem
-    {
+    public class SequenceAutoRotateItem : ICloneable{
         public TierId id;
         public Sign sign;
-        public SequenceAutoRotateItem(TierId id, Sign sign)
-        {
+        public SequenceAutoRotateItem(TierId id, Sign sign){
             this.id = id;
             this.sign = sign;
+        }
+        public object Clone(){
+            return this.MemberwiseClone();
         }
     }
     private class SequenceAutoRotateProperty{
         public SequenceAutoRotateItem[] sequenceAutoRotateItems;
         public int currentItemNum;
+        public Boolean shouldRecord;
     }
     SequenceAutoRotateProperty sequenceAutoRotateProperty;
-    public void InitSequenceAutoRotate(SequenceAutoRotateItem[] items){
+    public void InitSequenceAutoRotate(SequenceAutoRotateItem[] items, Boolean shouldRecord){
         this._phase = CubeTiersRotateRoutinePhase.sequenceAutoRotateGap;
         this.sequenceAutoRotateProperty.sequenceAutoRotateItems = items;
         this.sequenceAutoRotateProperty.currentItemNum = 0;
+        this.sequenceAutoRotateProperty.shouldRecord = shouldRecord;
 
         this.autoRotateProperty.anglePerSec = 360F;
         this.autoRotateProperty.bezier = new CubicBezierCurve();
@@ -594,18 +600,21 @@ public struct CubeTiersRotateRoutine
                     this.autoRotateProperty.deltaAngle = -90 - 0;
                 }
                 this._phase = CubeTiersRotateRoutinePhase.sequenceAutoRotating;
-                this.AutoRotate(transform);
+                this.AutoRotate(transform, sequenceAutoRotateProperty.shouldRecord);
             } else{
                 this._phase = CubeTiersRotateRoutinePhase.sleeping;
             }
         } else{
-            this.AutoRotate(transform);
+            this.AutoRotate(transform, sequenceAutoRotateProperty.shouldRecord);
         }
     }
     private void reviseCubeCoordOfBoxAndSquare(Transform transform){
-        this.reviseCubeCoordOfBoxAndSquare(transform, Quaternion.identity);
+        this.reviseCubeCoordOfBoxAndSquare(transform, Quaternion.identity, true);
     }
-    private void reviseCubeCoordOfBoxAndSquare(Transform transform, Quaternion rotation){
+    private void reviseCubeCoordOfBoxAndSquare(Transform transform, Quaternion quaternion){
+        this.reviseCubeCoordOfBoxAndSquare(transform, quaternion, true);
+    }
+    private void reviseCubeCoordOfBoxAndSquare(Transform transform, Quaternion rotation, bool shouldRecord){
         //Another way to handle maintaining is using Matrix4x4 api. I am not that familiar with matrix so I can't master Matrix4x4 api now. Maybe I will refactor this method when I do.
         if( rotation == Quaternion.identity ){
             if (
@@ -687,11 +696,26 @@ public struct CubeTiersRotateRoutine
                 }
             }
         }
+        if(Math.Abs(rotation.eulerAngles.x) < 0.1 && Math.Abs(rotation.eulerAngles.y) < 0.1 && Math.Abs(rotation.eulerAngles.z) < 0.1 ){
+        //no rotation
+            return;
+        }
         Cube cube = transform.gameObject.GetComponent<Cube>();
+        CubeRecord cubeRecord = new CubeRecord();
         int rank = cube.rank;
+        if (shouldRecord){
+            float xAngle = (rotation.eulerAngles.x % 360 + 360) % 360;
+            float yAngle = (rotation.eulerAngles.y % 360 + 360) % 360;
+            float zAngle = (rotation.eulerAngles.z % 360 + 360) % 360;
+            Sign sign = xAngle > 180 || yAngle > 180 || zAngle > 180 ? Sign.minus : Sign.plus;
+            cubeRecord.tierRotation = new SequenceAutoRotateItem(tier.id, sign);
+            cubeRecord.boxesState = new BoxState[rank * rank * rank];
+        }
         Vector3 toCenter = new Vector3((rank - 1) / 2, (rank - 1) / 2, (rank - 1) / 2);
         HashSet<GameObject> boxesCopy = new HashSet<GameObject>(tier.boxes);
-        foreach (GameObject box in boxesCopy){
+        GameObject[] boxesCopyArray = boxesCopy.OrderBy(box => box.name).ToArray();
+        for (int i = 0; i < boxesCopyArray.Length; i++){
+            GameObject box = boxesCopyArray[i];
             Box boxComp = box.GetComponent<Box>();
 
             //remove box from original tier
@@ -710,6 +734,12 @@ public struct CubeTiersRotateRoutine
             cube.tiers[new TierId(Face.xy, boxComp.cubeCoord.z)].boxes.Add(box);
             cube.tiers[new TierId(Face.xz, boxComp.cubeCoord.y)].boxes.Add(box);
             cube.tiers[new TierId(Face.yz, boxComp.cubeCoord.x)].boxes.Add(box);
+
+            if(shouldRecord){
+                cubeRecord.boxesState[i].cubeCoord = boxComp.cubeCoord;
+                cubeRecord.boxesState[i].localRotation = boxComp.transform.localRotation;
+                cubeRecord.boxesState[i].squareDirections = new Dictionary<string, Direction>();
+            }
 
             foreach (Square square in box.GetComponentsInChildren<Square>()){
                 Vector3 direction = Vector3.zero;
@@ -747,7 +777,22 @@ public struct CubeTiersRotateRoutine
                 } else if(direction.z < -0.5){
                     square.direction = Direction.negativeZ;
                 }
+                if(shouldRecord){
+                    cubeRecord.boxesState[i].squareDirections.Add(square.name, square.direction);
+                }
             }
+        }
+        if(shouldRecord){
+            if(cube._records.Last == cube._currentRecord){
+                cube._records.AddLast(cubeRecord);
+            } else{
+                cube._records.AddAfter(cube._currentRecord, cubeRecord);
+                while(cube._records.Last.Value != cubeRecord){
+                    cube._records.RemoveLast();
+                }
+            }
+            cube._currentRecord = cube._records.Last;
+            cube.CheckButtonBackForward();
         }
     }
     private void clearAccumulateDelta(){
@@ -1052,6 +1097,10 @@ public struct BoxState{
     public Quaternion localRotation;
     public Dictionary<String, Direction> squareDirections;
 }
+public class CubeRecord{
+    public CubeTiersRotateRoutine.SequenceAutoRotateItem tierRotation;
+    public BoxState[] boxesState;
+}
 public class Cube : MonoBehaviour {
     public int rank = 3;
     public Dictionary<TierId, Tier> tiers = new Dictionary<TierId, Tier>();
@@ -1059,6 +1108,21 @@ public class Cube : MonoBehaviour {
     CubeRotateRoutine cubeRR = new CubeRotateRoutine(7);
     public BoxState[] originBoxesState = new BoxState[0];
     float frontDistance;
+    internal LinkedList<CubeRecord> _records = new LinkedList<CubeRecord>();
+    internal LinkedListNode<CubeRecord> _currentRecord;
+    public LinkedList<CubeRecord> records {
+        get{
+            return _records;
+        }
+    }
+    public LinkedListNode<CubeRecord> currentRecord{
+        get{
+            return _currentRecord;
+        }
+    }
+    ButtonBack buttonBack;
+    ButtonForward buttonForward;
+    CubeRecord originRecord = new CubeRecord();
 
     void InitProperties() {
         this.name = "cube";
@@ -1087,8 +1151,14 @@ public class Cube : MonoBehaviour {
             this.tiers.Add(idy, new Tier(idy, new HashSet<GameObject>()));
             this.tiers.Add(idx, new Tier(idx, new HashSet<GameObject>()));
         }
+        originRecord.boxesState = originBoxesState;
+        originRecord.tierRotation = null;
+        _records.AddLast(originRecord);
+        _currentRecord = _records.Last;
+        buttonBack = GameObject.Find("back").GetComponent<ButtonBack>();
+        buttonForward = GameObject.Find("forward").GetComponent<ButtonForward>();
+        CheckButtonBackForward();
     }
-
     void ConstructCube() {
         GameObject protoBox = GameObject.Find("box");
         for (int x = 0; x < rank; x++)
@@ -1190,8 +1260,11 @@ public class Cube : MonoBehaviour {
         }
 	}
     public Boolean SequenceAutoRotateTier(CubeTiersRotateRoutine.SequenceAutoRotateItem[] items){
+        return SequenceAutoRotateTier(items, true);
+    }
+    public Boolean SequenceAutoRotateTier(CubeTiersRotateRoutine.SequenceAutoRotateItem[] items, Boolean shouldRecord){
         if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
-            this.tiersRR.InitSequenceAutoRotate(items);
+            this.tiersRR.InitSequenceAutoRotate(items, shouldRecord);
             return true;
         } else{
             return false;
@@ -1199,7 +1272,38 @@ public class Cube : MonoBehaviour {
     }
     public Boolean StartOver(){
         if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
-            this.LoadState(originBoxesState);
+            LoadState(originBoxesState);
+            _records.Clear();
+            _records.AddLast(originRecord);
+            _currentRecord = _records.Last;
+            CheckButtonBackForward();
+            return true;
+        } else{
+            return false;
+        }
+    }
+    internal void CheckButtonBackForward(){
+        buttonBack.CheckState(this);
+        buttonForward.CheckState(this);
+    }
+    public Boolean Back(){
+        if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping && this.currentRecord != this.records.First){
+            CubeTiersRotateRoutine.SequenceAutoRotateItem tierRotation = (CubeTiersRotateRoutine.SequenceAutoRotateItem)this.currentRecord.Value.tierRotation.Clone();
+            tierRotation.sign = tierRotation.sign == Sign.minus ? Sign.plus : Sign.minus;
+            SequenceAutoRotateTier(new CubeTiersRotateRoutine.SequenceAutoRotateItem[]{tierRotation}, false);
+            this._currentRecord = this.currentRecord.Previous;
+            CheckButtonBackForward();
+            return true;
+        } else{
+            return false;
+        }
+    }
+    public Boolean Forward(){
+        if (this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping && this.currentRecord != this.records.Last){
+            CubeTiersRotateRoutine.SequenceAutoRotateItem tierRotation = (CubeTiersRotateRoutine.SequenceAutoRotateItem)this.currentRecord.Next.Value.tierRotation.Clone();
+            SequenceAutoRotateTier(new CubeTiersRotateRoutine.SequenceAutoRotateItem[] { tierRotation }, false);
+            this._currentRecord = this.currentRecord.Next;
+            CheckButtonBackForward();
             return true;
         } else{
             return false;
