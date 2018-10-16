@@ -3,6 +3,7 @@ Temp/
 Library/
 
 #Visual Studio / MonoDevelop generated
+.vs/
 ExportedObj/
 obj/
 *.svd
