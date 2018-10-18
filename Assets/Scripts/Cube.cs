@@ -1271,7 +1271,15 @@ public class Cube : MonoBehaviour {
         }
     }
     public Boolean StartOver(){
-        if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
+        //
+        PersistCube pc = new PersistCube();
+        string ss = pc.Serialize(_records);
+        Console.WriteLine(ss);
+        LinkedList<CubeRecord> test = pc.Deserialize(ss);
+        Console.WriteLine("=======>");
+        Console.WriteLine(pc.Serialize(test));
+        //
+        if (this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
             LoadState(originBoxesState);
             _records.Clear();
             _records.AddLast(originRecord);
