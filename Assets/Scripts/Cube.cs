@@ -1273,9 +1273,9 @@ public class Cube : MonoBehaviour {
     public Boolean StartOver(){
         //
         PersistCube pc = new PersistCube();
-        string ss = pc.Serialize(_records);
+        string ss = pc.Serialize(new GameState(records, currentRecord));
         Console.WriteLine(ss);
-        LinkedList<CubeRecord> test = pc.Deserialize(ss);
+        GameState test = pc.Deserialize(ss);
         Console.WriteLine("=======>");
         Console.WriteLine(pc.Serialize(test));
         //
