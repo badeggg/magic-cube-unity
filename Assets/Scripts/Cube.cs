@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.Networking;
 
 class CubicBezierCurve{
     Vector2 controlPoint1;
@@ -701,21 +702,10 @@ public struct CubeTiersRotateRoutine
             return;
         }
         Cube cube = transform.gameObject.GetComponent<Cube>();
-        CubeRecord cubeRecord = new CubeRecord();
         int rank = cube.rank;
-        if (shouldRecord){
-            float xAngle = (rotation.eulerAngles.x % 360 + 360) % 360;
-            float yAngle = (rotation.eulerAngles.y % 360 + 360) % 360;
-            float zAngle = (rotation.eulerAngles.z % 360 + 360) % 360;
-            Sign sign = xAngle > 180 || yAngle > 180 || zAngle > 180 ? Sign.minus : Sign.plus;
-            cubeRecord.tierRotation = new SequenceAutoRotateItem(tier.id, sign);
-            cubeRecord.boxesState = new BoxState[rank * rank * rank];
-        }
         Vector3 toCenter = new Vector3((rank - 1) / 2, (rank - 1) / 2, (rank - 1) / 2);
         HashSet<GameObject> boxesCopy = new HashSet<GameObject>(tier.boxes);
-        GameObject[] boxesCopyArray = boxesCopy.OrderBy(box => box.name).ToArray();
-        for (int i = 0; i < boxesCopyArray.Length; i++){
-            GameObject box = boxesCopyArray[i];
+        foreach(GameObject box in boxesCopy){
             Box boxComp = box.GetComponent<Box>();
 
             //remove box from original tier
@@ -734,12 +724,6 @@ public struct CubeTiersRotateRoutine
             cube.tiers[new TierId(Face.xy, boxComp.cubeCoord.z)].boxes.Add(box);
             cube.tiers[new TierId(Face.xz, boxComp.cubeCoord.y)].boxes.Add(box);
             cube.tiers[new TierId(Face.yz, boxComp.cubeCoord.x)].boxes.Add(box);
-
-            if(shouldRecord){
-                cubeRecord.boxesState[i].cubeCoord = boxComp.cubeCoord;
-                cubeRecord.boxesState[i].localRotation = boxComp.transform.localRotation;
-                cubeRecord.boxesState[i].squareDirections = new Dictionary<string, Direction>();
-            }
 
             foreach (Square square in box.GetComponentsInChildren<Square>()){
                 Vector3 direction = Vector3.zero;
@@ -777,23 +761,41 @@ public struct CubeTiersRotateRoutine
                 } else if(direction.z < -0.5){
                     square.direction = Direction.negativeZ;
                 }
-                if(shouldRecord){
+            }
+        }
+        if (shouldRecord){
+            CubeRecord cubeRecord = new CubeRecord();
+
+            float xAngle = (rotation.eulerAngles.x % 360 + 360) % 360;
+            float yAngle = (rotation.eulerAngles.y % 360 + 360) % 360;
+            float zAngle = (rotation.eulerAngles.z % 360 + 360) % 360;
+            Sign sign = xAngle > 180 || yAngle > 180 || zAngle > 180 ? Sign.minus : Sign.plus;
+            cubeRecord.tierRotation = new SequenceAutoRotateItem(tier.id, sign);
+            
+            cubeRecord.boxesState = new BoxState[rank * rank * rank];
+            GameObject[] boxes = GameObject.FindGameObjectsWithTag("box").OrderBy(box => box.name).ToArray();
+            for(int i = 0; i < boxes.Length; i++){
+                GameObject box = boxes[i];
+                Box boxComp = box.GetComponent<Box>();
+                cubeRecord.boxesState[i].cubeCoord = boxComp.cubeCoord;
+                cubeRecord.boxesState[i].localRotation = boxComp.transform.localRotation;
+                cubeRecord.boxesState[i].squareDirections = new Dictionary<string, Direction>();
+                foreach (Square square in box.GetComponentsInChildren<Square>()){
                     cubeRecord.boxesState[i].squareDirections.Add(square.name, square.direction);
                 }
             }
-        }
-        if(shouldRecord){
-            if(cube._records.Last == cube._currentRecord){
+
+            if (cube._records.Last == cube._currentRecord){
                 cube._records.AddLast(cubeRecord);
             } else{
                 cube._records.AddAfter(cube._currentRecord, cubeRecord);
-                while(cube._records.Last.Value != cubeRecord){
+                while (cube._records.Last.Value != cubeRecord){
                     cube._records.RemoveLast();
                 }
             }
             cube._currentRecord = cube._records.Last;
-            cube.CheckButtonBackForward();
         }
+        cube.CheckButtonBackForward();
     }
     private void clearAccumulateDelta(){
         this.accumulateDeltaPosition = Vector2.zero;
@@ -1101,10 +1103,14 @@ public class CubeRecord{
     public CubeTiersRotateRoutine.SequenceAutoRotateItem tierRotation;
     public BoxState[] boxesState;
 }
+public enum CubePhase{ historyLoading, playing }
 public class Cube : MonoBehaviour {
     public int rank = 3;
     public Dictionary<TierId, Tier> tiers = new Dictionary<TierId, Tier>();
     public CubeTiersRotateRoutine tiersRR = new CubeTiersRotateRoutine(7);
+    public CubePhase phase = CubePhase.historyLoading;
+    private float historyLoadingTime = 0;
+    private float historyLoadingThreshold = 2;
     CubeRotateRoutine cubeRR = new CubeRotateRoutine(7);
     public BoxState[] originBoxesState = new BoxState[0];
     float frontDistance;
@@ -1201,13 +1207,13 @@ public class Cube : MonoBehaviour {
     {
         transform.Rotate(-18, 20, 0, Space.World);
     }
-    void LoadState(BoxState[] boxesState){
+    void LoadBoxesState(BoxState[] boxesState){
         Box[] boxes = FindObjectsOfType<Box>();
         boxes = boxes.OrderBy(box => box.name).ToArray();
         for (int i = 0; i < rank * rank * rank; i++){
             Box box = boxes[i];
 
-            //remove box gameObject to original tier
+            //remove box gameObject from original tier
             tiers[new TierId(Face.xy, box.cubeCoord.z)].boxes.Remove(box.gameObject);
             tiers[new TierId(Face.xz, box.cubeCoord.y)].boxes.Remove(box.gameObject);
             tiers[new TierId(Face.yz, box.cubeCoord.x)].boxes.Remove(box.gameObject);
@@ -1215,7 +1221,7 @@ public class Cube : MonoBehaviour {
             box.cubeCoord = boxesState[i].cubeCoord;
             box.transform.localPosition = new Vector3(boxesState[i].cubeCoord.x * 2 - frontDistance, boxesState[i].cubeCoord.y * 2 - frontDistance, boxesState[i].cubeCoord.z * 2 - frontDistance);
             box.transform.localRotation = boxesState[i].localRotation;
-            Square[] squares = FindObjectsOfType<Square>();
+            Square[] squares = box.gameObject.GetComponentsInChildren<Square>();
             foreach(Square square in squares){
                 square.direction = boxesState[i].squareDirections[square.name];
             }
@@ -1235,6 +1241,13 @@ public class Cube : MonoBehaviour {
 
     // Update is called once per frame
 	void Update () {
+        if(phase == CubePhase.historyLoading){
+            historyLoadingTime += Time.deltaTime;
+            if(historyLoadingTime > historyLoadingThreshold){
+                phase = CubePhase.playing;
+            }
+            return;
+        }
         if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.autoRotating){
             this.tiersRR.AutoRotate(transform);
         } else if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sequenceAutoRotating || this.tiersRR.phase == CubeTiersRotateRoutinePhase.sequenceAutoRotateGap){
@@ -1271,19 +1284,22 @@ public class Cube : MonoBehaviour {
         }
     }
     public Boolean StartOver(){
-        //
-        PersistCube pc = new PersistCube();
-        string ss = pc.Serialize(new GameState(records, currentRecord));
-        Console.WriteLine(ss);
-        GameState test = pc.Deserialize(ss);
-        Console.WriteLine("=======>");
-        Console.WriteLine(pc.Serialize(test));
-        //
         if (this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
-            LoadState(originBoxesState);
+            LoadBoxesState(originBoxesState);
             _records.Clear();
             _records.AddLast(originRecord);
             _currentRecord = _records.Last;
+            CheckButtonBackForward();
+            return true;
+        } else{
+            return false;
+        }
+    }
+    public Boolean LoadGameState(GameState gameState){
+        if(this.tiersRR.phase == CubeTiersRotateRoutinePhase.sleeping){
+            _records = gameState.records;
+            _currentRecord = gameState.currentRecord;
+            LoadBoxesState(currentRecord.Value.boxesState);
             CheckButtonBackForward();
             return true;
         } else{
@@ -1315,6 +1331,31 @@ public class Cube : MonoBehaviour {
             return true;
         } else{
             return false;
+        }
+    }
+    private void OnApplicationPause(bool pause){
+        if(pause){
+            StartCoroutine(UploadHistory());
+        }
+    }
+    private void OnApplicationQuit(){
+        StartCoroutine( UploadHistory() );
+    }
+    private IEnumerator UploadHistory(){
+        string serverBasePath = "https://magcb.club/magic-cube";
+        PersistCube pc = new PersistCube();
+        string gameStateStr = pc.Serialize(new GameState(records, currentRecord));
+        HistoryWebFormat history = new HistoryWebFormat(SystemInfo.deviceUniqueIdentifier, gameStateStr);
+        string json = JsonUtility.ToJson(history);
+
+        using ( UnityWebRequest www = UnityWebRequest.Put(serverBasePath + "/history", json) ){
+            www.SetRequestHeader("Content-Type", "application/json");
+            yield return www.SendWebRequest();
+            if (www.isNetworkError || www.isHttpError)
+            {
+                Debug.Log(www.error);
+            }
+            else{}
         }
     }
 }
