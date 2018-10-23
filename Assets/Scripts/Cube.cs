@@ -1110,7 +1110,7 @@ public class Cube : MonoBehaviour {
     public CubeTiersRotateRoutine tiersRR = new CubeTiersRotateRoutine(7);
     public CubePhase phase = CubePhase.historyLoading;
     private float historyLoadingTime = 0;
-    private float historyLoadingThreshold = 2;
+    private float historyLoadingThreshold = 1.5F;
     CubeRotateRoutine cubeRR = new CubeRotateRoutine(7);
     public BoxState[] originBoxesState = new BoxState[0];
     float frontDistance;
@@ -1205,7 +1205,7 @@ public class Cube : MonoBehaviour {
     }
     void InitView()
     {
-        transform.Rotate(-18, 20, 0, Space.World);
+        transform.Rotate(-20, 47, -20, Space.World);
     }
     void LoadBoxesState(BoxState[] boxesState){
         Box[] boxes = FindObjectsOfType<Box>();
