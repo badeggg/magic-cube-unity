@@ -1348,8 +1348,9 @@ public class Cube : MonoBehaviour {
         HistoryWebFormat history = new HistoryWebFormat(SystemInfo.deviceUniqueIdentifier, gameStateStr);
         string json = JsonUtility.ToJson(history);
 
-        using ( UnityWebRequest www = UnityWebRequest.Put(serverBasePath + "/history", json) ){
+        using ( UnityWebRequest www = UnityWebRequest.Put(serverBasePath + "/history", Gzip.Zip(json)) ){
             www.SetRequestHeader("Content-Type", "application/json");
+            www.SetRequestHeader("Content-Encoding", "gzip");
             yield return www.SendWebRequest();
             if (www.isNetworkError || www.isHttpError)
             {
